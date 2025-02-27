@@ -1,0 +1,51 @@
+from skyfield.api import EarthSatellite, load
+from skyfield.toposlib import wgs84  # Import Earth model
+import numpy as np
+
+# Load satellites from the TLE file
+satellites = load.tle_file('//Users/elliotrendell/CSV and JSONs/Calsphere 1.txt')
+
+# Get the first satellite
+sat = satellites[0]
+
+# Load timescale and get current time
+ts = load.timescale()
+t = ts.now()
+
+def get_satellite_telemetry():
+    # Compute the satellite’s position at time `t`
+    geocentric = sat.at(t)
+    # Compute height above Earth's surface using WGS84 model
+    altitude_km = wgs84.height_of(geocentric)
+    lat, lon = wgs84.latlon_of(geocentric)
+    inclination = sat.model.inclo  # Inclination in degrees
+
+    return altitude_km, lat.degrees, lon.degrees, inclination
+
+altitude_km, lat_deg, lon_deg, inclination = get_satellite_telemetry()
+
+def compute_orbital_parameters():
+    # Constants
+    mu = 398600.4418  # km^3/s^2, Earth's gravitational parameter
+    earth_radius_km = 6378.137  # Earth's equatorial radius in km
+    e = sat.model.ecco
+    #Compute semi-major axis (a = Earth's radius + altitude)
+    semi_major_axis_km = earth_radius_km + altitude_km.km
+    # Compute period
+    orbital_period_s = 2 * np.pi * np.sqrt(semi_major_axis_km**3 / mu)
+    orbital_period = orbital_period_s / 60
+    velocity_km_s = np.sqrt(mu / semi_major_axis_km)
+    apogee = semi_major_axis_km * (1 + e)
+    perigee = semi_major_axis_km * (1 - e)
+    return orbital_period , velocity_km_s, apogee, perigee, e
+
+orbital_period, velocity_km_s, apogee, perigee, e = compute_orbital_parameters()
+
+print(f'{sat.name}: Altitude: {altitude_km.km:.2f} km')
+print(f'{sat.name}: Latitude: {lat_deg:.2f}° | Longitude: {lon_deg:.2f}°')
+print(f'{sat.name}: Apogee: {apogee:.2f} km')
+print(f'{sat.name}: Perigee: {perigee:.2f} km')
+print(f'{sat.name}: Inclination: {inclination:.2f}°')
+print(f'{sat.name}: Eccentricity: {e}°')
+print(f'{sat.name}: Orbital velocity: {velocity_km_s:2f} km/s')
+print(f'{sat.name}: Orbital Period: {orbital_period:.2f} minutes')
